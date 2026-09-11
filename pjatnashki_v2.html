@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Пятнашки — игра</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+background:linear-gradient(135deg,#151515,#303030);color:white;display:flex;justify-content:center}
+.wrap{width:min(94vw,460px);padding:24px 0 35px;text-align:center}
+h1{font-size:38px;margin:0 0 5px}
+.subtitle{opacity:.75;margin-bottom:18px}
+.panel{display:flex;justify-content:space-between;gap:8px;margin-bottom:12px}
+.stat{flex:1;background:#202020;border-radius:12px;padding:9px}
+.stat b{display:block;font-size:22px}
+select,.control{border:0;border-radius:11px;padding:11px 12px;font-size:16px;font-weight:700}
+select{width:100%;margin-bottom:12px}
+#board{display:grid;gap:7px;padding:7px;background:#111;border-radius:15px;touch-action:manipulation}
+.tile{border:0;border-radius:10px;aspect-ratio:1;background:#f2f2f2;color:#111;font-weight:800;
+font-size:clamp(24px,9vw,42px);box-shadow:0 3px 0 #aaa;cursor:pointer}
+.tile:active{transform:translateY(2px);box-shadow:0 1px 0 #aaa}
+.empty{visibility:hidden}
+.buttons{display:flex;gap:9px;margin-top:14px}
+.control{flex:1;cursor:pointer;background:#fff;color:#111}
+.message{min-height:32px;margin-top:13px;font-size:20px;font-weight:700}
+.small{font-size:13px;opacity:.65;margin-top:9px}
+</style>
+</head>
+<body>
+<main class="wrap">
+<h1>🧩 Пятнашки</h1>
+<div class="subtitle">Собери числа по порядку</div>
+
+<div class="panel">
+ <div class="stat">Ходы<b id="moves">0</b></div>
+ <div class="stat">Время<b id="time">00:00</b></div>
+</div>
+
+<select id="size" aria-label="Размер поля">
+ <option value="3">Легко — 3×3</option>
+ <option value="4" selected>Нормально — 4×4</option>
+ <option value="5">Сложно — 5×5</option>
+</select>
+
+<div id="board"></div>
+
+<div class="buttons">
+ <button class="control" id="new">🎮 Новая игра</button>
+ <button class="control" id="reset">↩️ Сначала</button>
+</div>
+<div class="message" id="message"></div>
+<div class="small">Нажимай на плитку рядом с пустой клеткой.</div>
+</main>
+
+<script>
+(function(){
+let n=4, tiles=[], moves=0, seconds=0, timer=null, started=false, won=false;
+
+const $=id=>document.getElementById(id);
+
+function solved(){
+ for(let i=0;i<tiles.length-1;i++) if(tiles[i]!==i+1) return false;
+ return tiles[tiles.length-1]===0;
+}
+
+function formatTime(){
+ const m=String(Math.floor(seconds/60)).padStart(2,'0');
+ const s=String(seconds%60).padStart(2,'0');
+ $('time').textContent=m+':'+s;
+}
+
+function startTimer(){
+ if(timer) clearInterval(timer);
+ timer=setInterval(()=>{if(started&&!won){seconds++;formatTime()}},1000);
+}
+
+function draw(){
+ const board=$('board');
+ board.style.gridTemplateColumns=`repeat(${n},1fr)`;
+ board.innerHTML='';
+ tiles.forEach((v,i)=>{
+   const b=document.createElement('button');
+   b.type='button';
+   b.className='tile'+(v===0?' empty':'');
+   b.textContent=v===0?'':v;
+   b.addEventListener('click',()=>move(i));
+   board.appendChild(b);
+ });
+ $('moves').textContent=moves;
+ formatTime();
+}
+
+function move(i){
+ if(won) return;
+ const empty=tiles.indexOf(0);
+ const r=Math.floor(i/n), c=i%n;
+ const er=Math.floor(empty/n), ec=empty%n;
+ if(Math.abs(r-er)+Math.abs(c-ec)!==1) return;
+ [tiles[i],tiles[empty]]=[tiles[empty],tiles[i]];
+ moves++;
+ started=true;
+ $('message').textContent='';
+ draw();
+ if(solved()){
+   won=true;
+   if(timer) clearInterval(timer);
+   $('message').textContent=`🎉 Победа за ${moves} ходов!`;
+ }
+}
+
+function shuffle(){
+ const total=n*n;
+ tiles=Array.from({length:total-1},(_,i)=>i+1).concat(0);
+ let empty=total-1, previous=-1;
+ for(let k=0;k<Math.max(100,total*50);k++){
+   const er=Math.floor(empty/n), ec=empty%n;
+   const p=[];
+   if(er>0) p.push(empty-n);
+   if(er<n-1) p.push(empty+n);
+   if(ec>0) p.push(empty-1);
+   if(ec<n-1) p.push(empty+1);
+   const choices=p.filter(x=>x!==previous);
+   const idx=choices[Math.floor(Math.random()*choices.length)];
+   [tiles[idx],tiles[empty]]=[tiles[empty],tiles[idx]];
+   previous=empty; empty=idx;
+ }
+ if(solved()) return shuffle();
+ moves=0; seconds=0; started=false; won=false;
+ $('message').textContent='';
+ draw();
+}
+
+function reset(){
+ if(!tiles.length) return newGame();
+ moves=0;seconds=0;started=false;won=false;
+ $('message').textContent='';
+ draw();
+}
+
+function newGame(){
+ n=parseInt($('size').value,10);
+ shuffle();
+}
+
+$('new').addEventListener('click',newGame);
+$('reset').addEventListener('click',reset);
+$('size').addEventListener('change',newGame);
+newGame();
+startTimer();
+})();
+</script>
+</body>
+</html>
